@@ -28,20 +28,31 @@ find_package(OpenMP REQUIRED)
 
 # Tìm pybind11 để tạo cầu nối C++ và Python
 # (Yêu cầu bạn đã cài pybind11 qua pip: pip install pybind11)
+# --- BẮT ĐẦU ĐOẠN MÃ MỚI ---
+# Gọi Python để tự động tìm đường dẫn của pybind11
+execute_process(
+    COMMAND python -c "import pybind11; print(pybind11.get_cmake_dir())"
+    OUTPUT_VARIABLE pybind11_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Sau khi có đường dẫn, yêu cầu CMake tìm package
+# --- CẬP NHẬT TỪ ĐÂY ---
+# Bật tính năng FindPython mới để tắt cảnh báo CMP0148 của CMake
+set(PYBIND11_FINDPYTHON ON)
+
+# Sau khi có đường dẫn (từ lệnh execute_process bên trên), yêu cầu CMake tìm package
 find_package(pybind11 REQUIRED)
 
 # ---------------------------------------------------------------------------
 # 3. ĐỊNH NGHĨA MODULE PYTHON (BUILD TARGET)
 # ---------------------------------------------------------------------------
-# pybind11_add_module sẽ tự động tạo ra một file thư viện động (.so trên Linux, .pyd trên Windows)
-# Tên module mà Python sẽ import là 'fastmc_engine'
+# Vì tất cả logic đã được viết inline trong các file .hpp, 
+# chúng ta chỉ cần biên dịch file pybind_wrapper.cpp là đủ.
 pybind11_add_module(fastmc_engine 
-    src/payoff.cpp 
-    src/sde.cpp 
-    src/random.cpp 
-    src/mc_engine.cpp 
     bindings/pybind_wrapper.cpp
 )
+# --- ĐẾN ĐÂY ---
 
 # ---------------------------------------------------------------------------
 # 4. LIÊN KẾT & CẤU HÌNH ĐƯỜNG DẪN (LINKING & INCLUDES)
