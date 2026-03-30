@@ -3,59 +3,75 @@
 #include "payoff.hpp"
 #include "random.hpp"
 #include <cmath>
-#include <omp.h> // Thư viện OpenMP cho đa luồng
+#include <omp.h>
 
-// =========================================================
-// LỚP ENGINE MONTE CARLO (Cỗ máy tính toán lõi)
-// =========================================================
 class MonteCarloEngine {
 private:
-    const SDE& sde;          // Tham chiếu hằng đến đối tượng SDE (VD: GBM)
-    const Payoff& payoff;    // Tham chiếu hằng đến đối tượng Payoff (VD: Call/Put)
-    double r;                // Lãi suất phi rủi ro (dùng để chiết khấu)
-    double T;                // Thời gian đến hạn (tính bằng năm)
+    const SDE& sde;
+    const Payoff& payoff;
+    double r;
+    double T;
 
 public:
-    // Constructor nạp các module vào engine
     MonteCarloEngine(const SDE& sde_, const Payoff& payoff_, double r_, double T_)
         : sde(sde_), payoff(payoff_), r(r_), T(T_) {}
 
-    // Hàm chạy mô phỏng chính
+    // Hàm 1: Mô phỏng chuẩn (Đã viết)
     double simulate(unsigned int num_paths, unsigned int num_steps) const {
-        double dt = T / num_steps;      // Kích thước bước thời gian (Delta t)
-        double sum_payoffs = 0.0;       // Tổng tiền trả thưởng của tất cả kịch bản
+        double dt = T / num_steps;
+        double sum_payoffs = 0.0;
 
-        // Bật chế độ đa luồng của OpenMP
         #pragma omp parallel
         {
-            // [QUAN TRỌNG] Mỗi luồng (thread) phải có một bộ sinh số ngẫu nhiên RIÊNG BIỆT.
-            // Nếu dùng chung sẽ gây lỗi Race Condition (tranh chấp bộ nhớ).
-            // omp_get_thread_num() lấy ID của luồng hiện tại để tạo ra hạt giống (seed) khác nhau.
             MersenneTwisterRNG thread_rng(1234 + omp_get_thread_num());
-
-            // Chia đều tổng số đường dẫn (num_paths) cho các luồng CPU hiện có.
-            // reduction(+:sum_payoffs) giúp cộng gộp an toàn kết quả từ các luồng vào biến tổng.
             #pragma omp for reduction(+:sum_payoffs)
             for (unsigned int i = 0; i < num_paths; ++i) {
-                
-                double S = sde.getInitialState(); // Lấy giá S_0 ban đầu
+                double S = sde.getInitialState();
                 double t = 0.0;
-
-                // Vòng lặp rời rạc hóa Euler-Maruyama cho một kịch bản giá
                 for (unsigned int j = 0; j < num_steps; ++j) {
                     double Z = thread_rng.getStandardNormal();
-                    
-                    // Công thức S_{t+dt} = S_t + Drift * dt + Diffusion * sqrt(dt) * Z
                     S = S + sde.drift(S, t) * dt + sde.diffusion(S, t) * std::sqrt(dt) * Z;
                     t += dt;
                 }
-
-                // Tính tiền bồi thường cho kịch bản này và cộng vào tổng
                 sum_payoffs += payoff(S);
             }
-        } // Kết thúc vùng tính toán song song
-
-        // Tính trung bình mẫu và chiết khấu về hiện tại (Risk-Neutral Discounting)
+        }
         return std::exp(-r * T) * (sum_payoffs / num_paths);
+    }
+
+    // --- HÀM 2 MỚI: Mô phỏng với biến đối ngẫu (Antithetic Variates) ---
+    double simulateAntithetic(unsigned int num_paths, unsigned int num_steps) const {
+        double dt = T / num_steps;
+        double sum_payoffs = 0.0;
+        
+        // Chỉ cần chạy một nửa số vòng lặp vì mỗi vòng đẻ ra 2 đường
+        unsigned int half_paths = num_paths / 2;
+
+        #pragma omp parallel
+        {
+            MersenneTwisterRNG thread_rng(1234 + omp_get_thread_num());
+
+            #pragma omp for reduction(+:sum_payoffs)
+            for (unsigned int i = 0; i < half_paths; ++i) {
+                double S_plus = sde.getInitialState();
+                double S_minus = sde.getInitialState(); // Đường lật ngược
+                double t = 0.0;
+
+                for (unsigned int j = 0; j < num_steps; ++j) {
+                    double Z = thread_rng.getStandardNormal();
+                    
+                    // Tính song song 2 kịch bản với cùng một con số Z
+                    S_plus = S_plus + sde.drift(S_plus, t) * dt + sde.diffusion(S_plus, t) * std::sqrt(dt) * Z;
+                    S_minus = S_minus + sde.drift(S_minus, t) * dt + sde.diffusion(S_minus, t) * std::sqrt(dt) * (-Z);
+                    
+                    t += dt;
+                }
+
+                // Trung bình cộng payoff của cả đường gốc và đường đối ngẫu
+                sum_payoffs += (payoff(S_plus) + payoff(S_minus)) / 2.0;
+            }
+        }
+
+        return std::exp(-r * T) * (sum_payoffs / half_paths);
     }
 };

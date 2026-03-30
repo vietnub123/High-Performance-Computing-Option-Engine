@@ -1,8 +1,0 @@
-[
-{
-  "directory": "D:/ProjectMonteCarlo/build",
-  "command": "D:\\pearl\\c\\bin\\g++.exe -Dfastmc_engine_EXPORTS -ID:/ProjectMonteCarlo/include -isystem C:/Users/Admin/AppData/Local/Programs/Python/Python313/include -isystem C:/Users/Admin/AppData/Local/Programs/Python/Python313/Lib/site-packages/pybind11/include -g -std=gnu++17 -fvisibility=hidden -O3 -march=native -Wall -Wextra -ffast-math -fopenmp -o CMakeFiles\\fastmc_engine.dir\\bindings\\pybind_wrapper.cpp.obj -c D:\\ProjectMonteCarlo\\bindings\\pybind_wrapper.cpp",
-  "file": "D:\\ProjectMonteCarlo\\bindings\\pybind_wrapper.cpp",
-  "output": "CMakeFiles\\fastmc_engine.dir\\bindings\\pybind_wrapper.cpp.obj"
-}
-]

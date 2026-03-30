@@ -1,0 +1,17 @@
+# Bỏ qua thư mục biên dịch của C++/CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+
+# Bỏ qua các file thư viện đã biên dịch
+*.pyd
+*.so
+*.dll
+*.exe
+
+# Bỏ qua file rác của Python
+__pycache__/
+*.pyc
+
+# Bỏ qua cấu hình cá nhân của VS Code
+.vscode/
